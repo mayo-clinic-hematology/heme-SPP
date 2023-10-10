@@ -25,7 +25,7 @@ EOF
 ### Pre determined Variables: Edit Once ###
 TITLE="Codex_MxIF_Analysis"
 WKFL=Modules/
-QPATHFULL=/research/biotools/qupath/0.4.3/bin
+QPATHFULL=/research/bsi/tools/biotools/qupath/0.4.3/bin/
 DAPIIDX=0
 MEMBRIDX=7
 
