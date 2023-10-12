@@ -15,7 +15,7 @@
 ```
 ./run_pipeline_codex.sh -i [/path/to/smallinputfolder] -o [/path/to/outputfolder]
 ```
-- End the run when downloaded and resubmit as a job to the queue using `submit_cdx_pipeline`. It is generally ill-advised to run on the head node, but is necessary for the reasons outlined above regarding compute node internet access.
+- End the run when downloaded and resubmit as a job to the queue using `submit_cdx_pipeline.sh`. It is ill-advised to run jobs on the head node, but is necessary for the reasons outlined above regarding compute node internet access.
 - Pull processed codex data from Villaboas processing drive (CODEX Processed files) into your input directory folder using your preferred file transfer method. The file structure of the necessary data from a codex run should look as such:
 ```bash
 ├── inputfolder
