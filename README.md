@@ -11,8 +11,14 @@
   - module load apptainer
   - `/bin/bash Modules/build_deepcell_singularity.sh` (NOTE:DEPRECATED USAGE: Singularity is deprecated and has been replaced with Apptainer within the scripts)
 
-- Next, the pipeline will need to be to run on a head node with a reduced dataset to pull and cache the MultiplexSegmentation model. We recommend using one small reg001 directory from a previous experiment and running until the model is downloaded:
+- Next, the pipeline will need to be to run on a head node with a reduced dataset to pull and cache the MultiplexSegmentation model. We recommend using one small reg001 directory from a previous experiment and running until the model is downloaded. Set up the environment modules with `module load`:
 ```
+module purge
+module load apptainer
+module load conda
+eval "$(conda shell.bash hook)"
+conda activate cdx_pipe_env
+
 ./run_pipeline_codex.sh -i [/path/to/smallinputfolder] -o [/path/to/outputfolder]
 ```
 - End the run when downloaded and resubmit as a job to the queue using `submit_cdx_pipeline.sh`. It is ill-advised to run jobs on the head node, but is necessary for the reasons outlined above regarding compute node internet access.
