@@ -1,5 +1,5 @@
 # Heme-Spatial Processing Pipeline
-- A modified pipeline from Raymond Moore: https://github.com/VillasboasLab/MACodexPipeline
+- A modified pipeline from Raymond Moore: https://github.com/VillasboasLab/MyCodexPipeline
   
 ## Preparation:
 
@@ -8,7 +8,7 @@
   - `conda create -n cdx_pipe_env tifffile numpy pandas xarray`
 
 - Build the deepcell singularity container that runs mesmer for segmentation. This should be done inside your pipeline directory `/path/to/heme-spp`. The container must be built prior to being submitted to the queue as compute nodes do not have internet access to pull the container:
-  - module load apptainer
+  - `module load apptainer`
   - `/bin/bash Modules/build_deepcell_singularity.sh` (NOTE:DEPRECATED USAGE: Singularity is deprecated and has been replaced with Apptainer within the scripts)
 
 - Next, the pipeline will need to be to run on a head node with a reduced dataset to pull and cache the MultiplexSegmentation model. We recommend using one small reg001 directory from a previous experiment and running until the model is downloaded. Set up the environment modules with `module load`:
