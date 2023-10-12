@@ -5,7 +5,7 @@
 
 - A conda environment containing the necessary packages. To create this environment: 
   - `module load conda`
-  - `conda create -n cdx_pipe_env tifffile numpy pandas xarray` (You will need to init conda in your `$HOME` directory to activate conda environments locally,but the pipeline will handle this once the environment is created)
+  - `conda create -n cdx_pipe_env tifffile numpy pandas xarray`
 
 - Build the deepcell singularity container that runs mesmer for segmentation. This should be done inside your pipeline directory `/path/to/heme-spp`. The container must be built prior to being submitted to the queue as compute nodes do not have internet access to pull the container:
   - module load apptainer
