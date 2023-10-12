@@ -1,5 +1,7 @@
 #! /bin/bash
 # by Raymond Moore
+SECONDS=0
+
 
 usage()
 {
@@ -54,26 +56,62 @@ then
 	echo -e "\e[1;31mMust provide a input directory.\e[0m"
 	usage
 	exit 1;
+
+else
+	echo -e "\n Input directory:  ${INPUT}\n"
+	echo -e "\n Output directory: ${OUTPUT}\n"
+	echo -e "\n DAPI index:       ${DAPIIDX}\n"
+	echo -e "\n Membrane index:   ${MEMBRIDX}\n"
+	echo -e "\n#---------------------------------------------------"
+    echo -e "\n#---------   Contents of input directory   ---------"
+    echo -e "\n#---------------------------------------------------\n"
+
+    reg_total=$(find "${INPUT}/stitched/" -mindepth 1 -type d | wc -l)
+    reg_filesize=$(du -sh "${INPUT}/stitched" | cut -f1)
+
+    echo -e "\t-> Number of regions: $reg_total"
+    echo -e "\t-> Size of regions:   $reg_filesize"
+    echo -e "\n#---------------------------------------------------\n"
 fi
+
+echo -e "\n"
+
+
+echo -e "\n#---------------------------------------------------"
+echo -e "\n#--------------   PIPELINE START:    ---------------"
+echo -e "\n#---------------------------------------------------\n"
+
+
 
 mkdir -p $OUTPUT/{OMETIFF,SEGMASKS,QUPATH,REPORTS}
 
-## Step 1: Generate OME.TIFF's
+
+echo "----------Step 1: Generating OME.TIFF's $(($SECONDS / 3600))h $(($SECONDS / 60))m $(($SECONDS % 60))s----------"
+
+## Generating OME.TIFF files from stitched directory
+
 python $WKFL/convertCodexDir2Ometiff.py -i $INPUT -o $OUTPUT/OMETIFF
 
 ## Segementation Setup: need to run just once.
 # /bin/bash $WKFL/build_deepcell_singularity.sh
+
+echo "----------Step 2: Segmenting OME.TIFF's $(($SECONDS / 3600))h $(($SECONDS / 60))m $(($SECONDS % 60))s----------"
+
+## Segmenting each OME.TIFF file using mesmer
 
 for ROIFH in $OUTPUT/OMETIFF/*.ome.tiff; do 
 	echo $ROIFH;
  	$WKFL/run_deepcell_singularity.sh $OUTPUT $ROIFH $DAPIIDX $MEMBRIDX
 done
 
-## Make QuPath project, and generate Quantification
-$QPATHFULL/QuPath script $WKFL/createNewProject_Codex.groovy -a $OUTPUT 
+echo "----------Step 3: Quantifying Marker Expression $(($SECONDS / 3600))h $(($SECONDS / 60))m $(($SECONDS % 60))s----------"
 
+## Make QuPath project
+$QPATHFULL/QuPath script $WKFL/createNewProject_Codex.groovy -a $OUTPUT 
+## Generate quantification
 PRGT=$(ls $OUTPUT/QUPATH/*.qpproj)
 $QPATHFULL/QuPath script $WKFL/export_individual_qupath_rois.groovy -a $OUTPUT -p $PRGT
 
+echo "----------End of Heme-Spatial Processing Pipeline $(($SECONDS / 3600))h $(($SECONDS / 60))m $(($SECONDS % 60))s----------"
 
-
+## end Heme-Spatial Processing Pipeline

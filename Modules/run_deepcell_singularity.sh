@@ -8,7 +8,7 @@
 ## 6/7/2022
 ##################
 
-export SINGULARITY_CACHEDIR=$PWD
+export APPTAINER_CACHEDIR=$PWD
 wkfldir=$1
 imgfile=$2
 fbname=$(basename "$imgfile" | cut -d. -f1)
@@ -23,7 +23,7 @@ then
 fi
 
 ## whole-cell segmentation
-singularity run -B $wkfldir deepcell.sif mesmer \
+apptainer run --unsquash -H $PWD -B $wkfldir deepcell.sif mesmer \
  --nuclear-image $imgfile \
  --membrane-image $imgfile \
  --nuclear-channel $NCHANNEL \
