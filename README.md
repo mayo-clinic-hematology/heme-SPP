@@ -65,3 +65,9 @@ To run the pipeline successfully there are two options.
   - cdx_pipe_env
 - qupath/0.4.3
 - apptainer/1.1.4
+
+
+
+
+
+
