@@ -12,7 +12,7 @@
   - `/bin/bash Modules/build_deepcell_singularity.sh` (NOTE:DEPRECATED USAGE: Singularity is deprecated and has been replaced with Apptainer within the scripts)
 
 
-- Next, the pipeline will need to be to run on a head node with a reduced dataset to pull and cache the MultiplexSegmentation model. Pull a reduced processed codex experiment from the Villaboas processing drive (CODEX Processed files) into your input directory folder using your preferred file transfer method. We recommend using one small reg001 directory from a previous experiment and running until the model is downloaded. You will need all filles from the stitched folder and only the .log file from the diagnostics folder. The file structure of the necessary data from a codex run should look as such (This same file structure and data should be the same for full runs as well):
+- Next, the pipeline will need to be to run on a head node with a reduced dataset to pull and cache the MultiplexSegmentation model. Pull a reduced processed codex experiment from the Villaboas processing drive (CODEX Processed files) into your input directory folder using your preferred file transfer method. We recommend using one small reg001 directory from a previous experiment and running until the model is downloaded. You will need all filles from the stitched folder and only the .log file from the diagnostics folder. The file structure of the necessary data from a codex run should look as such (This file structure and data should be the same for full runs as well):
 ```bash
 ├── inputfolder
 │   ├── stitched
