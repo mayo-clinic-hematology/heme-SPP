@@ -54,9 +54,10 @@ To run the pipeline successfully there are two options.
       ```
 2. Allocate and enter an interactive environment on mFORGE using `srun` with sufficient compute resources:
       - `cd /path/to/pipeline/heme-spp`
+      - Setup environment modules as done previously
       - Run the pipeline from the command line:
       ```
-      ./run_pipeline_codex.sh -i [/path/to/inputfolder] -o [/path/to/outputfolder]> -d [nuclearchannel] -m [membrane channel(s)]
+      ./run_pipeline_codex.sh -i [/path/to/inputfolder] -o [/path/to/outputfolder] -d [nuclearchannel] -m [membrane channel(s)]
       ```
 ## Dependencies
 
