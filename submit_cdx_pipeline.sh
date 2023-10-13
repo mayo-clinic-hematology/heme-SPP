@@ -1,6 +1,5 @@
 #! /bin/bash
 
-
 #SBATCH --partition=cpu-short
 #SBATCH -J=heme-spptest1
 #SBATCH -o hemespp-%J.log
@@ -9,7 +8,7 @@
 #SBATCH --ntasks=8
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=howe.michael@mayo.edu
-
+#SBATCH --chdir=/path/to/pipeline/heme-spp
 
 module purge
 module load apptainer
