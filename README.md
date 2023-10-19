@@ -45,7 +45,7 @@ To run the pipeline successfully there are two options.
         - 11: `#SBATCH --chdir=/path/to/pipeline/heme-spp`
       - Line 23 must be changed to include paths to input and output directories (nuclearchannel and membranechannel are optional arguments and their defaults can be found in `run_pipeline_codex.sh`):
       ```
-      ./run_pipeline_codex.sh -i [/path/to/inputfolder] -o [/path/to/outputfolder]> -d [nuclearchannel] -m [membrane channel(s)]
+      ./run_pipeline_codex.sh -i [/path/to/inputfolder] -o [/path/to/outputfolder] -d [nuclearchannel] -m [membrane channel(s)]
       ```
       
       - Submit to queue:

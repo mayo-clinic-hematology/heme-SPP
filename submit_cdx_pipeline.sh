@@ -17,8 +17,8 @@ module load conda
 eval "$(conda shell.bash hook)"
 conda activate cdx_pipe_env
 
-cd /research/labs/hematology/hemedata/m302618/projects/spatial/heme-SPP
-echo $PWD
+
+echo "Current working directory: ${PWD}"
 
 ./run_pipeline_codex.sh -i /research/labs/hematology/hemedata/m302618/projects/spatial/cdx_pipeline_mforge/cdx_test_kankeu \
     -o /research/labs/hematology/hemedata/m302618/projects/spatial/cdx_pipeline_mforge/cdx_test_kankeu_out
