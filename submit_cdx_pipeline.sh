@@ -1,7 +1,7 @@
 #! /bin/bash
 
 #SBATCH --partition=cpu-short
-#SBATCH -J=heme-spptest1
+#SBATCH -J=logfilesname
 #SBATCH -o hemespp-%J.log
 #SBATCH --time=1:00:00
 #SBATCH --mem=32G
@@ -20,5 +20,5 @@ conda activate cdx_pipe_env
 
 echo "Current working directory: ${PWD}"
 
-./run_pipeline_codex.sh -i /research/labs/hematology/hemedata/m302618/projects/spatial/cdx_pipeline_mforge/cdx_test_kankeu \
-    -o /research/labs/hematology/hemedata/m302618/projects/spatial/cdx_pipeline_mforge/cdx_test_kankeu_out
+./run_pipeline_codex.sh -i /path/to/input/directory \
+    -o /path/to/output/directory

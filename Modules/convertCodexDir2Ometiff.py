@@ -62,6 +62,8 @@ def write_ometiff(targetDir, targetPrefix, outpath, pxSize):
 	allTiffs = glob.glob(os.path.join(targetDir,"reg*.tif"))
 	allBaseFH = [ os.path.basename(i) for i in allTiffs]
 	stepwiseTable = pd.DataFrame([i.replace('.tif','').split('_') for i in allBaseFH])
+	
+
 	if len(stepwiseTable.columns) == 6:
 		stepwiseTable.columns = ["Sample","Cycle","Channel","Marker","Barcode","Exposure"]
 	else:
@@ -80,6 +82,11 @@ def write_ometiff(targetDir, targetPrefix, outpath, pxSize):
 	stepwiseTable.loc[stepwiseTable['Marker']=='Blank', 'Keep'] = 'No'
 	stepwiseTable['FileHandle'] = pd.Series(allTiffs)
 	stepwiseTable.reset_index(drop=True, inplace=True)
+	## Create and append duplicates to stepwiseTable for renaming duplicates
+	duplicated = stepwiseTable.Marker.duplicated(keep=False)
+	stepwiseTable['duplicates'] = duplicated
+
+	
 
 	dat = []
 	xmlChan = []
@@ -87,9 +94,14 @@ def write_ometiff(targetDir, targetPrefix, outpath, pxSize):
 	yDim = []
 	cDim = []
 	u = 0
+	
 	for index, row in stepwiseTable.iterrows():
 		if row['Keep'] == 'No':
 			continue
+		## Duplicate markers in different channels will be concatenated with their corresponding channel name to avoid QuPath overwriting them
+		if row['duplicates'] == True and row['Keep'] == "Yes":
+			row['Marker'] = row['Marker'] + "_" +  row['Channel']
+			stepwiseTable.at[index, 'Marker'] = row['Marker']
 		## Check to ensure import TIFF is single image type.
 		tmpImg = tifffile.TiffFile(row['FileHandle'])
 		if not len(tmpImg.pages) == 1:
@@ -103,7 +115,6 @@ def write_ometiff(targetDir, targetPrefix, outpath, pxSize):
 		dat.append(tmpImg.pages[0].asarray())
 		u += 1
 	imgStack = np.array(dat)
-
 	imarr = xr.DataArray(imgStack,
 		name=targetPrefix,
 		dims=("c", "x", "y"),
@@ -144,6 +155,8 @@ def write_ometiff(targetDir, targetPrefix, outpath, pxSize):
 	</OME>
 	"""
 	tifffile.imwrite(outpath, data=imarr.values, description=xml, contiguous=True )
+	## Drop the duplicates column created previously
+	stepwiseTable.drop('duplicates', axis=1, inplace=True)
 	stepwiseTable.to_csv(outpath.replace('.tiff','')+'_table.csv', index=False)
 
 
