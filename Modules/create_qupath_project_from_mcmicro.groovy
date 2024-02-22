@@ -20,6 +20,8 @@ import ij.process.ImageProcessor
 // import qupath.lib.objects.PathCellObject
 // import qupath.lib.objects.PathDetectionObject
 
+// for loading csv file 
+
 regionSet="reg"
 
 // workflowDir=args[0]
@@ -37,6 +39,33 @@ println("  Output QuPath: " + dir_project)
 // def outputPath=workflowDir+"/REPORTS/AllQuPathQuantification.tsv"
 // println("  Quantifications: "+outputPath)
 
+def file_marker_csv = dir_workflow + "/markers.csv"
+
+// Load list of markers from markers.csv file 
+def list_markers = []
+list_markers_csv = new File(file_marker_csv).readLines()
+
+list_markers_csv.each() { item ->
+     list_items = item.split(",")
+     name_channel =  list_items[2]
+     //print name_channel
+     
+     if(!name_channel.contains("marker_name")){
+         list_markers << name_channel
+         }
+     
+    }
+    
+// set the channel names
+String[] chan_names = new String[list_markers.size()];
+for (int i = 0; i < list_markers.size(); i++) {
+   chan_names[i] = list_markers[i];
+}
+
+println chan_names
+
+//println "Markers "
+//println list_markers
 
 def downsample = 1
 double xOrigin = 0
@@ -91,6 +120,10 @@ for (file in files) {
 	// Set a particular image type
 	def imageData = entry.readImageData()
 	imageData.setImageType(ImageData.ImageType.FLUORESCENCE)
+		
+	// set channel names from csv file
+	setChannelNames(imageData, chan_names)
+	
 	entry.saveImageData(imageData)
 	
 	// Write a thumbnail if we can
@@ -99,6 +132,7 @@ for (file in files) {
 	
 	// Add an entry name (the filename)
 	entry.setImageName(file.getName())
+
 }
 
 // Changes should now be reflected in the project directory
