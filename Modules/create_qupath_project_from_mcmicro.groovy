@@ -15,17 +15,20 @@ import qupath.lib.gui.commands.ProjectCommands
 import qupath.lib.gui.QuPathGUI
 import ij.process.ImageProcessor
 // Remove this if you don't need to generate new cell intensity measurements (it may be quite slow)
-// import qupath.lib.analysis.features.ObjectMeasurements
-// import qupath.lib.gui.tools.MeasurementExporter
-// import qupath.lib.objects.PathCellObject
-// import qupath.lib.objects.PathDetectionObject
+ import qupath.lib.analysis.features.ObjectMeasurements
+ import qupath.lib.gui.tools.MeasurementExporter
+ import qupath.lib.objects.PathCellObject
+ import qupath.lib.objects.PathDetectionObject
 
 // for loading csv file 
 
 regionSet="reg"
 
 // workflowDir=args[0]
-dir_workflow = "C:/Users/m304399/Desktop/qupath_project"
+//dir_workflow = "Y:/003 CODEX/MCMICRO/SMM_project/20230522_BR1010694BR1034362_Gonsalves_3_membrane"
+//"C:/Users/m304399/Desktop/qupath_project"
+dir_workflow = "M:/Projects/SMM/MCMICRO/20230522_BR1010694BR1034362_Gonsalves_3_membrane"
+
 
 def dir_ome = dir_workflow + "/registration"
 println("  Input OME.TIFFs: " + dir_ome)
@@ -188,23 +191,23 @@ if (directoryOfMasks.exists()){
 			return PathObjects.createDetectionObject(it)
 		}
 		println("   Number of PathObjects: "+pathObjects.size() )
-		imageData.getHierarchy().addPathObjects(pathObjects)
+		imageData.getHierarchy().addObjects(pathObjects)
 		resolveHierarchy()
 		entry.saveImageData(imageData)
 		
-		// println(" >>> Calculating measurements...")
-        // println(imageData.getHierarchy())
-        // println("  DetectionObjects:"+imageData.getHierarchy().getDetectionObjects().size())		
-        // def measurements = ObjectMeasurements.Measurements.values() as List
-		// println(measurements)
-        // for (detection in imageData.getHierarchy().getDetectionObjects()) {
-        //     ObjectMeasurements.addIntensityMeasurements( server, detection, downsample, measurements, [] )
-        //     ObjectMeasurements.addShapeMeasurements( detection, server.getPixelCalibration(), ObjectMeasurements.ShapeFeatures.values() )
-        // }
-        // fireHierarchyUpdate()
-		// entry.saveImageData(imageData)
-		// imageData.getServer().close() // best to do this...
-	}
+		println(" >>> Calculating measurements...")
+        println(imageData.getHierarchy())
+        println("  DetectionObjects:"+imageData.getHierarchy().getDetectionObjects().size())        
+        def measurements = ObjectMeasurements.Measurements.values() as List
+        println(measurements)
+        for (detection in imageData.getHierarchy().getDetectionObjects()) {
+             ObjectMeasurements.addIntensityMeasurements( server, detection, downsample, measurements, [] )
+             ObjectMeasurements.addShapeMeasurements( detection, server.getPixelCalibration(), ObjectMeasurements.ShapeFeatures.values() )
+         }
+         fireHierarchyUpdate()
+         entry.saveImageData(imageData)
+         imageData.getServer().close() // best to do this...
+	 }
 
 }
 
