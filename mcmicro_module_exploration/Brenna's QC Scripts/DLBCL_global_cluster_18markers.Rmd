@@ -1,0 +1,736 @@
+---
+title: "DLBCL Global Clustering"
+author: 'Brenna Novotny: Bioinformatician'
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    code_folding: hide
+    df_print: paged 
+    geometry: margin=2cm
+    highlight: textmate
+    theme: journal
+    fig_crop: false
+    toc: true
+    toc_float: true
+  pdf_document: default
+---
+<style type="text/css">
+.main-container {
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+}
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+
+library(Matrix)
+library(Hmisc)
+library(Seurat)
+library(progressr)
+library(data.table)
+library(plyr)
+library(dplyr)
+library(ggplot2)
+library(clustree)
+library(ComplexHeatmap)
+library(circlize)
+```
+
+
+```{r}
+base_dir <- getwd()
+
+files <- list.files(paste0(base_dir,"/data"))
+files <- files[grepl("QUANT", files)]
+files <- files[grepl("reg", files)]
+print(paste0("Found ",length(files)," QUANT files in Dir."))
+rois <- sapply(files, function(x) sub("_QUANT\\.tsv", "", x))
+print(paste0(length(rois)," ROIs in total"))
+```
+
+
+```{r}
+get_counts <- function(roi) {
+  root_path <- base_dir
+  
+  counts <- fread(paste0(root_path, "/data/for_seurat/", roi, "_qcd_filtered_markers_withids.csv"))
+  counts$roi <- roi
+  
+  counts <- counts %>% select(roi, all_of(setdiff(colnames(.), "roi")))
+  
+  counts
+}
+
+get_counts_allmarkers <- function(roi) {
+  root_path <- base_dir
+  
+  counts <- fread(paste0(root_path, "/data/for_seurat/allmarkers_", roi, "_qcd_withids.csv"))
+  counts$roi <- roi
+  
+  counts <- counts %>% select(roi, all_of(setdiff(colnames(.), "roi")))
+  
+  counts
+}
+
+arcsine_transform <- function(x) {
+  y <- x / max(x)
+  asin(sqrt(y))
+}
+
+zscorenorm <- function(marker) {
+  mu = mean(marker)
+  sd = sd(marker)
+  (marker - mu) / sd
+}
+
+cluster_seurat <- function(codex.obj, res) {
+  codex.obj <- FindNeighbors(object = codex.obj, dims = c(1:length(markers_selected)), verbose = FALSE)
+  codex.obj <- FindClusters(object = codex.obj, verbose = FALSE, resolution = res, n.start = 1)
+  codex.obj
+}
+
+
+get_normalized_counts <- function(roi) {
+  root_path <- base_dir
+  
+  counts <- fread(paste0(root_path, "/data/for_seurat/", roi, "_qcd_filtered_markers_withids.csv"))
+  counts$roi <- roi
+  counts <- counts %>% select(roi, all_of(setdiff(colnames(.), "roi")))
+  
+  for_hist_before <- counts %>% select(contains("Median"))
+  png(paste0("plots/hist_markers_beforenorm_", roi, ".png"), width = 8, height = 8, units = "in", res = 300)
+  hist.data.frame(for_hist_before)
+  dev.off()
+  
+  cols <- grep("Median", colnames(counts), value = T)
+  
+  for (j in cols) set(counts, j = j, value = arcsine_transform(counts[[j]]))
+  for (j in cols) set(counts, j = j, value = zscorenorm(counts[[j]]))
+  
+  for_hist_after <- counts %>% select(contains("Median"))
+  png(paste0("plots/hist_markers_afternorm_", roi, ".png"), width = 8, height = 8, units = "in", res = 300)
+  hist.data.frame(for_hist_after)
+  dev.off()
+  
+  counts
+}
+
+get_normalized_counts_allmarkers <- function(roi) {
+  root_path <- base_dir
+  
+  counts <- fread(paste0(root_path, "/data/for_seurat/allmarkers_", roi, "_qcd_withids.csv"))
+  counts$roi <- roi
+  counts <- counts %>% select(roi, all_of(setdiff(colnames(.), "roi")))
+  
+  cols <- grep("Median", colnames(counts), value = T)
+  
+  for (j in cols) set(counts, j = j, value = arcsine_transform(counts[[j]]))
+  for (j in cols) set(counts, j = j, value = zscorenorm(counts[[j]]))
+  
+  counts
+}
+
+# Override the default Seurat read function to use median instead of mean
+ReadAkoyaCustom_median <- function (filename, type = c("inform", "processor", "qupath"), 
+                                    filter = "DAPI|Blank|Empty", inform.quant = c("mean", "total", 
+                                                                                  "min", "max", "std")) 
+{
+  if (!requireNamespace("data.table", quietly = TRUE)) {
+    stop("Please install 'data.table' for this function")
+  }
+  if (!file.exists(filename)) {
+    stop(paste("Can't file file:", filename))
+  }
+  type <- tolower(x = type[1L])
+  type <- match.arg(arg = type)
+  ratio <- getOption(x = "Seurat.input.sparse_ratio", default = 0.4)
+  p <- progressor()
+  p(message = "Preloading Akoya matrix", class = "sticky", 
+    amount = 0)
+  sep <- switch(EXPR = type, inform = "\t", ",")
+  mtx <- data.table::fread(file = filename, sep = sep, data.table = FALSE, 
+                           verbose = FALSE)
+  p(message = paste0("Parsing matrix in '", type, "' format"), 
+    class = "sticky", amount = 0)
+  outs <- switch(EXPR = type, processor = {
+    p(message = "Creating centroids coordinates", class = "sticky", 
+      amount = 0)
+    centroids <- data.frame(x = mtx[["x:x"]], y = mtx[["y:y"]], 
+                            cell = as.character(x = mtx[["cell_id:cell_id"]]), 
+                            stringsAsFactors = FALSE)
+    rownames(x = mtx) <- as.character(x = mtx[["cell_id:cell_id"]])
+    p(message = "Creating meta data", class = "sticky", amount = 0)
+    md <- mtx[, !grepl(pattern = "^cyc", x = colnames(x = mtx)), 
+              drop = FALSE]
+    colnames(x = md) <- vapply(X = strsplit(x = colnames(x = md), 
+                                            split = ":"), FUN = "[[", FUN.VALUE = character(length = 1L), 
+                               2L)
+    p(message = "Creating expression matrix", class = "sticky", 
+      amount = 0)
+    mtx <- mtx[, grepl(pattern = "^cyc", x = colnames(x = mtx)), 
+               drop = FALSE]
+    colnames(x = mtx) <- vapply(X = strsplit(x = colnames(x = mtx), 
+                                             split = ":"), FUN = "[[", FUN.VALUE = character(length = 1L), 
+                                2L)
+    if (!is.na(x = filter)) {
+      p(message = paste0("Filtering features with pattern '", 
+                         filter, "'"), class = "sticky", amount = 0)
+      mtx <- mtx[, !grepl(pattern = filter, x = colnames(x = mtx)), 
+                 drop = FALSE]
+    }
+    mtx <- t(x = mtx)
+    if ((sum(mtx == 0)/length(x = mtx)) > ratio) {
+      p(message = "Converting expression to sparse matrix", 
+        class = "sticky", amount = 0)
+      mtx <- as.sparse(x = mtx)
+    }
+    list(matrix = mtx, centroids = centroids, metadata = md)
+  }, inform = {
+    inform.quant <- tolower(x = inform.quant[1L])
+    inform.quant <- match.arg(arg = inform.quant)
+    expr.key <- c(mean = "Mean", total = "Total", min = "Min", 
+                  max = "Max", std = "Std Dev")[inform.quant]
+    expr.pattern <- "\\(Normalized Counts, Total Weighting\\)"
+    rownames(x = mtx) <- mtx[["Cell ID"]]
+    mtx <- mtx[, setdiff(x = colnames(x = mtx), y = "Cell ID"), 
+               drop = FALSE]
+    p(message = "Creating centroids coordinates", class = "sticky", 
+      amount = 0)
+    centroids <- data.frame(x = mtx[["Cell X Position"]], 
+                            y = mtx[["Cell Y Position"]], cell = rownames(x = mtx), 
+                            stringsAsFactors = FALSE)
+    p(message = "Creating meta data", class = "sticky", amount = 0)
+    cols <- setdiff(x = grep(pattern = expr.pattern, x = colnames(x = mtx), 
+                             value = TRUE, invert = TRUE), y = paste("Cell", c("X", 
+                                                                               "Y"), "Position"))
+    md <- mtx[, cols, drop = FALSE]
+    exprs <- data.frame(cols = grep(pattern = paste(expr.key, 
+                                                    expr.pattern), x = colnames(x = mtx), value = TRUE))
+    exprs$feature <- vapply(X = trimws(x = gsub(pattern = paste(expr.key, 
+                                                                expr.pattern), replacement = "", x = exprs$cols)), 
+                            FUN = function(x) {
+                              x <- unlist(x = strsplit(x = x, split = " "))
+                              x <- x[length(x = x)]
+                              return(gsub(pattern = "\\(|\\)", replacement = "", 
+                                          x = x))
+                            }, FUN.VALUE = character(length = 1L))
+    exprs$class <- tolower(x = vapply(X = strsplit(x = exprs$cols, 
+                                                   split = " "), FUN = "[[", FUN.VALUE = character(length = 1L), 
+                                      1L))
+    classes <- unique(x = exprs$class)
+    outs <- vector(mode = "list", length = length(x = classes) + 
+                     2L)
+    names(x = outs) <- c("matrix", "centroids", "metadata", 
+                         setdiff(x = classes, y = "entire"))
+    outs$centroids <- centroids
+    outs$metadata <- md
+    for (i in classes) {
+      p(message = paste("Creating", switch(EXPR = i, entire = "entire cell", 
+                                           i), "expression matrix"), class = "sticky", amount = 0)
+      df <- exprs[exprs$class == i, , drop = FALSE]
+      expr <- mtx[, df$cols]
+      colnames(x = expr) <- df$feature
+      if (!is.na(x = filter)) {
+        p(message = paste0("Filtering features with pattern '", 
+                           filter, "'"), class = "sticky", amount = 0)
+        expr <- expr[, !grepl(pattern = filter, x = colnames(x = expr)), 
+                     drop = FALSE]
+      }
+      expr <- t(x = expr)
+      if ((sum(expr == 0, na.rm = TRUE)/length(x = expr)) > 
+          ratio) {
+        p(message = paste("Converting", switch(EXPR = i, 
+                                               entire = "entire cell", i), "expression to sparse matrix"), 
+          class = "sticky", amount = 0)
+        expr <- as.sparse(x = expr)
+      }
+      outs[[switch(EXPR = i, entire = "matrix", i)]] <- expr
+    }
+    outs
+  }, qupath = {
+    rownames(x = mtx) <- as.character(x = seq_len(length.out = nrow(x = mtx)))
+    p(message = "Creating centroids coordinates", class = "sticky", 
+      amount = 0)
+    xpos <- sort(x = grep(pattern = "Centroid X", x = colnames(x = mtx), 
+                          value = TRUE), decreasing = TRUE)[1L]
+    ypos <- sort(x = grep(pattern = "Centroid Y", x = colnames(x = mtx), 
+                          value = TRUE), decreasing = TRUE)[1L]
+    centroids <- data.frame(x = mtx[[xpos]], y = mtx[[ypos]], 
+                            cell = rownames(x = mtx), stringsAsFactors = FALSE)
+    p(message = "Creating meta data", class = "sticky", amount = 0)
+    cols <- setdiff(x = grep(pattern = "Cell: Median", x = colnames(x = mtx), 
+                             ignore.case = TRUE, value = TRUE, invert = TRUE), 
+                    y = c(xpos, ypos))
+    md <- mtx[, cols, drop = FALSE]
+    p(message = "Creating expression matrix", class = "sticky", 
+      amount = 0)
+    idx <- which(x = grepl(pattern = "Cell: Median", x = colnames(x = mtx), 
+                           ignore.case = TRUE))
+    mtx <- mtx[, idx, drop = FALSE]
+    colnames(x = mtx) <- vapply(X = strsplit(x = colnames(x = mtx), 
+                                             split = ":"), FUN = "[[", FUN.VALUE = character(length = 1L), 
+                                1L)
+    if (!is.na(x = filter)) {
+      p(message = paste0("Filtering features with pattern '", 
+                         filter, "'"), class = "sticky", amount = 0)
+      mtx <- mtx[, !grepl(pattern = filter, x = colnames(x = mtx)), 
+                 drop = FALSE]
+    }
+    mtx <- t(x = mtx)
+    if ((sum(mtx == 0)/length(x = mtx)) > ratio) {
+      p(message = "Converting expression to sparse matrix", 
+        class = "sticky", amount = 0)
+      mtx <- as.sparse(x = mtx)
+    }
+    list(matrix = mtx, centroids = centroids, metadata = md)
+  }, stop("Unknown matrix type: ", type))
+  return(outs)
+}
+
+
+LoadAkoyaCustom_median <- function (filename, type = c("inform", "processor", "qupath"), 
+                                    fov, assay = "Akoya", ...) 
+{
+  data <- ReadAkoyaCustom_median(filename = filename, type = type)
+  coords <- suppressWarnings(expr = CreateFOV(coords = data$centroids, 
+                                              type = "centroids", key = "fov", assay = assay))
+  colnames(x = data$metadata) <- suppressWarnings(expr = make.names(names = colnames(x = data$metadata)))
+  obj <- CreateSeuratObject(counts = data$matrix, assay = assay, 
+                            meta.data = data$metadata)
+  coords <- subset(x = coords, cells = Cells(x = obj))
+  suppressWarnings(expr = obj[[fov]] <- coords)
+  for (i in setdiff(x = names(x = data), y = c("matrix", "centroids", 
+                                               "metadata"))) {
+    suppressWarnings(expr = obj[[i]] <- CreateAssayObject(counts = data[[i]]))
+  }
+  return(obj)
+}
+
+plot_avg_heatmap <- function(codex.obj, order_manual = FALSE, row_ord = NULL, col_ord = NULL, scale_by = "row") {
+  
+  mat <- codex.obj@assays$Akoya@scale.data
+  mat <- t(mat) %>% as.data.frame()
+  mat$cluster <- codex.obj$seurat_clusters
+  
+  # Get means for each cluster
+  smSub <- mat %>%
+    group_by(cluster) %>%
+    summarise_all(mean, na.rm = TRUE) %>%
+    mutate_all(funs(replace(., is.na(.), 0))) %>%
+    ungroup()
+  
+  # Get number of cells per cluster for annotation
+  annoBarValues <- as.data.frame(table(mat$cluster))$Freq
+  
+  # Create matrix to be used in the heatmap
+  if (scale_by == "row") {
+    mat2 <- smSub %>%
+      select(-c(cluster)) %>% replace(is.na(.), 0) %>%
+      as.matrix()  %>% t() %>% pheatmap:::scale_rows()
+  } else if (scale_by == "column") {
+    mat2 <- smSub %>%
+      select(-c(cluster)) %>% replace(is.na(.), 0) %>%
+      as.matrix() %>% pheatmap:::scale_rows()  %>% t()
+  } else print("Select a valid argument for scale_by: row or column.")
+  
+  ## Annotation for cluster
+  ha = HeatmapAnnotation(Cluster = smSub$cluster,
+                         ClusterID = anno_text(smSub$cluster, gp = gpar(fontsize = 12)))
+  
+  # Create barplot annotation for cluster size for bottom of heatmap
+  ba = HeatmapAnnotation(CellCount = anno_barplot(annoBarValues,height=unit(2, "cm")))
+  
+  mat2[is.nan(mat2)] <- 0
+  colnames(mat2) <- smSub$cluster
+  
+  if (order_manual) {
+    if (!is.null(row_ord)) {
+      Heatmap(mat2,
+              row_names_gp = gpar(fontsize = 13),
+              top_annotation = ha,
+              bottom_annotation = ba,
+              column_order = col_ord,
+              row_order = row_ord,
+              border = TRUE)
+      
+    } else {
+      Heatmap(mat2,
+              row_names_gp = gpar(fontsize = 13),
+              top_annotation = ha,
+              bottom_annotation = ba,
+              column_order = col_ord,
+              border = TRUE)
+    }
+    
+  } else {
+    Heatmap(mat2,
+            row_names_gp = gpar(fontsize = 13),
+            top_annotation = ha,
+            bottom_annotation = ba,
+            border = TRUE)
+  }
+}
+```
+
+
+```{r eval = FALSE}
+all_rois <- ldply(rois, get_counts)
+
+fwrite(all_rois, "data/for_seurat/all_rois_18markers.csv")
+
+all_rois <- fread("data/for_seurat/all_rois_18markers.csv")
+```
+
+
+```{r eval = FALSE}
+all_normalized <- ldply(rois, get_normalized_counts)
+
+all_normalized <- all_normalized %>% select(contains("Median")) %>% as.matrix()
+
+colnames(all_normalized) <- sub(": Cell: Median", "", colnames(all_normalized))
+
+all_normalized <- t(all_normalized)
+
+all_normalized <- Matrix(all_normalized, sparse = TRUE)
+colnames(all_normalized) <- 1:ncol(all_normalized)
+```
+
+
+```{r eval = FALSE}
+codex.obj <- LoadAkoyaCustom_median(filename = paste0(base_dir, "/data/for_seurat/all_rois_18markers.csv"), type = "qupath", fov = "all_rois")
+
+codex.obj@assays$Akoya@data <- all_normalized
+codex.obj <- ScaleData(codex.obj)
+
+VariableFeatures(codex.obj) <- rownames(codex.obj)  # Since the panel is small, treat all features as variable.
+codex.obj <- RunPCA(object = codex.obj, npcs = 18, verbose = FALSE, approx = FALSE)
+codex.obj <- RunUMAP(object = codex.obj, dims = c(1:18), verbose = FALSE)
+
+saveRDS(codex.obj, "data/global_18markers_codex_obj.rds")
+```
+
+```{r eval = FALSE}
+markers_selected <- codex.obj@assays$Akoya@counts@Dimnames[[1]]
+
+codex.obj <- FindNeighbors(object = codex.obj, dims = c(1:length(markers_selected)), verbose = FALSE)
+codex.obj <- FindClusters(object = codex.obj, verbose = FALSE, resolution = seq(0.1,1.9,0.2), n.start = 1)
+
+saveRDS(codex.obj, "data/codex_obj_18markers_withclusters.rds")
+```
+
+```{r}
+codex.obj <- readRDS("data/codex_obj_18markers_withclusters.rds")
+markers_selected <- codex.obj@assays$Akoya@counts@Dimnames[[1]]
+```
+
+# UMAP by ROI
+
+```{r}
+DimPlot(codex.obj, group.by = "roi", raster = T)
+```
+
+# Clustree
+```{r eval = F}
+## Clustree takes forever to run, 0.3 was the resolution chosen
+tree <- clustree(codex.obj, prefix = "Akoya_snn_res.")
+plot(tree)
+ggsave(paste0("plots/global_18marker_clustree.png"), height = 10, width = 13, units = "in", dpi = 300)
+min_clusters <- 6
+treedata <- tree$data
+tree_summary <- treedata %>% group_by(Akoya_snn_res.) %>% summarise(sc3_sd = min(sc3_stability) + sd(sc3_stability), n_cluster = n()) %>% filter(n_cluster > min_clusters)
+clustering_res <- as.numeric(as.character(tree_summary$Akoya_snn_res.[which.max(tree_summary$sc3_sd)]))
+if(length(clustering_res) > 1) clustering_res <- clustering_res[1]
+```
+
+```{r}
+clustering_res <- 0.3
+```
+
+
+![](plots/global_18marker_clustree.png)
+
+```{r eval=FALSE}
+final_nclust <- tree_summary$n_cluster[which.max(tree_summary$sc3_sd)]
+
+treedata$`Selected resolution` <- treedata$Akoya_snn_res. == clustering_res
+
+tree_summary <- treedata %>% group_by(Akoya_snn_res.) %>% summarise(sc3_sd = min(sc3_stability) + sd(sc3_stability), n_cluster = n()) %>% select(Resolution = Akoya_snn_res., `# clusters` = n_cluster)
+# kable(tree_summary, align = "r")
+
+ggplot(treedata, aes(x = Akoya_snn_res., y = size, fill = `Selected resolution`)) +
+  geom_boxplot() +
+  geom_jitter(width = 0.2) +
+  theme_bw() +
+  xlab("Resolution") +
+  ylab("Cells per cluster") +
+  ggtitle("Distribution of cluster sizes per resolution")
+ggsave("plots/global_18marker_cluster_res_boxplot.png", height = 5, width = 8, units = "in", dpi = 300)
+```
+
+![](plots/global_18marker_cluster_res_boxplot.png)
+
+# Clustering resolution * 1
+```{r}
+codex.obj <- cluster_seurat(codex.obj, res = clustering_res)
+DimPlot(codex.obj, raster = T)
+```
+
+## ROI composition of clusters
+```{r}
+roi_cluster_counts <- table(codex.obj$roi, codex.obj$seurat_clusters)
+roi_cluster_counts <- data.frame(roi_cluster_counts)
+
+ggplot(roi_cluster_counts, aes(x = Var2, y = Freq, fill = Var1)) +
+  geom_bar(stat = "identity", position = "fill") +
+  xlab("Cluster")
+```
+```{r}
+colnames(roi_cluster_counts) <- c("roi", "cluster", "n")
+
+roi_cluster_counts$pct_of_cluster <- NA
+
+for (i in seq_along(roi_cluster_counts$cluster)) {
+  cluster_total <- sum(roi_cluster_counts$n[roi_cluster_counts$cluster == roi_cluster_counts$cluster[i]])
+  # print(cluster_total)
+  roi_cluster_counts$pct_of_cluster[i] <- (roi_cluster_counts$n[i]/cluster_total)*100
+}
+
+max_cluster_pct <- roi_cluster_counts %>% group_by(cluster) %>% slice_max(pct_of_cluster)
+# write.csv(max_cluster_pct, row.names = FALSE, "data/05-global_18marker_max_cluster_pct.csv")
+
+for (i in seq_along(roi_cluster_counts$cluster)) {
+  roi_total <- sum(roi_cluster_counts$n[roi_cluster_counts$roi == roi_cluster_counts$roi[i]])
+  # print(roi_total)
+  roi_cluster_counts$pct_of_roi[i] <- (roi_cluster_counts$n[i]/roi_total)*100
+}
+
+max_roi_pct <- roi_cluster_counts %>% group_by(roi) %>% slice_max(pct_of_roi)
+# write.csv(max_roi_pct, row.names = FALSE, "data/05-global_18marker_max_roi_pct.csv")
+```
+
+
+## Heatmap scaled by row
+```{r fig.height=8, fig.width=16}
+ht <- plot_avg_heatmap(codex.obj, scale_by = "row")
+ht <- draw(ht)
+
+row_ord <- row_order(ht)
+col_ord <- column_order(ht)
+```
+
+
+## Heatmap scaled by column
+```{r fig.height=8, fig.width=16}
+ht <- plot_avg_heatmap(codex.obj, order_manual = TRUE, scale_by = "column", row_ord = row_ord, col_ord = col_ord)
+ht <- draw(ht)
+```
+
+## Heatmap with all markers
+
+### Scaled by row
+```{r}
+all_rois_allmarkers <- ldply(rois, get_counts_allmarkers) %>% select(!contains("Background"))
+
+fwrite(all_rois_allmarkers, "data/for_seurat/all_rois_allmarkers.csv")
+
+all_normalized_allmarkers <- ldply(rois, get_normalized_counts_allmarkers)
+
+all_normalized_allmarkers <- all_normalized_allmarkers %>% select(contains("Median") & !contains("Background")) %>% as.matrix()
+
+colnames(all_normalized_allmarkers) <- sub(": Cell: Median", "", colnames(all_normalized_allmarkers))
+
+all_normalized_allmarkers <- t(all_normalized_allmarkers)
+
+all_normalized_allmarkers <- Matrix(all_normalized_allmarkers, sparse = TRUE)
+colnames(all_normalized_allmarkers) <- 1:ncol(all_normalized_allmarkers)
+```
+
+```{r fig.height=12, fig.width = 8}
+codex.obj_allmarkers <- LoadAkoyaCustom_median(filename = paste0(base_dir, "/data/for_seurat/all_rois_allmarkers.csv"), type = "qupath", fov = "all_rois")
+
+if (all(codex.obj$cellid == codex.obj_allmarkers$cellid)) {
+  codex.obj_allmarkers$seurat_clusters <- codex.obj$seurat_clusters
+  Idents(codex.obj_allmarkers) <- codex.obj_allmarkers$seurat_clusters
+}
+
+codex.obj_allmarkers <- suppressMessages(NormalizeData(object = codex.obj_allmarkers, normalization.method = "CLR", margin = 2))
+codex.obj_allmarkers <- suppressMessages(ScaleData(codex.obj_allmarkers))
+VariableFeatures(codex.obj_allmarkers) <- rownames(codex.obj_allmarkers)
+
+ht_all_row <- plot_avg_heatmap(codex.obj_allmarkers, order_manual = T, col_ord = col_ord, scale_by = "row")
+ht_all_row <- draw(ht_all_row)
+row_ord_all <- row_order(ht_all_row)
+```
+
+### Scaled by column
+```{r fig.height=12, fig.width = 8}
+ht_all_col <- plot_avg_heatmap(codex.obj_allmarkers, order_manual = T, col_ord = col_ord, row_ord = row_ord_all, scale_by = "column")
+ht_all_col <- draw(ht_all_col)
+```
+
+
+# Clustering resolution * 2
+```{r}
+codex.obj <- cluster_seurat(codex.obj, res = clustering_res * 2)
+DimPlot(codex.obj, raster = T)
+```
+
+## ROI composition of clusters
+```{r}
+roi_cluster_counts <- table(codex.obj$roi, codex.obj$seurat_clusters)
+roi_cluster_counts <- data.frame(roi_cluster_counts)
+
+ggplot(roi_cluster_counts, aes(x = Var2, y = Freq, fill = Var1)) +
+  geom_bar(stat = "identity", position = "fill") +
+  xlab("Cluster")
+```
+
+```{r}
+colnames(roi_cluster_counts) <- c("roi", "cluster", "n")
+
+roi_cluster_counts$pct_of_cluster <- NA
+
+for (i in seq_along(roi_cluster_counts$cluster)) {
+  cluster_total <- sum(roi_cluster_counts$n[roi_cluster_counts$cluster == roi_cluster_counts$cluster[i]])
+  # print(cluster_total)
+  roi_cluster_counts$pct_of_cluster[i] <- (roi_cluster_counts$n[i]/cluster_total)*100
+}
+
+max_cluster_pct <- roi_cluster_counts %>% group_by(cluster) %>% slice_max(pct_of_cluster)
+# write.csv(max_cluster_pct, row.names = FALSE, "data/05-global_18marker_max_cluster_pct.csv")
+
+for (i in seq_along(roi_cluster_counts$cluster)) {
+  roi_total <- sum(roi_cluster_counts$n[roi_cluster_counts$roi == roi_cluster_counts$roi[i]])
+  # print(roi_total)
+  roi_cluster_counts$pct_of_roi[i] <- (roi_cluster_counts$n[i]/roi_total)*100
+}
+
+max_roi_pct <- roi_cluster_counts %>% group_by(roi) %>% slice_max(pct_of_roi)
+# write.csv(max_roi_pct, row.names = FALSE, "data/05-global_18marker_max_roi_pct.csv")
+```
+
+## Heatmap scaled by row
+```{r fig.height=8, fig.width=16}
+ht <- plot_avg_heatmap(codex.obj, scale_by = "row")
+ht <- draw(ht)
+
+row_ord <- row_order(ht)
+col_ord <- column_order(ht)
+```
+
+
+## Heatmap scaled by column
+```{r fig.height=8, fig.width=16}
+ht <- plot_avg_heatmap(codex.obj, order_manual = TRUE, scale_by = "column", row_ord = row_ord, col_ord = col_ord)
+ht <- draw(ht)
+```
+
+## Heatmaps with all markers
+
+### Scaled by row
+```{r fig.height=12, fig.width = 8}
+if (all(codex.obj$cellid == codex.obj_allmarkers$cellid)) {
+  codex.obj_allmarkers$seurat_clusters <- codex.obj$seurat_clusters
+  Idents(codex.obj_allmarkers) <- codex.obj_allmarkers$seurat_clusters
+}
+
+ht_all_row <- plot_avg_heatmap(codex.obj_allmarkers, order_manual = T, col_ord = col_ord, scale_by = "row")
+ht_all_row <- draw(ht_all_row)
+row_ord_all <- row_order(ht_all_row)
+```
+
+### Scaled by column
+```{r fig.height=12, fig.width = 8}
+ht_all_col <- plot_avg_heatmap(codex.obj_allmarkers, order_manual = T, col_ord = col_ord, row_ord = row_ord_all, scale_by = "column")
+ht_all_col <- draw(ht_all_col)
+```
+
+# Clustering resolution * 5
+```{r}
+codex.obj <- cluster_seurat(codex.obj, res = clustering_res * 5)
+DimPlot(codex.obj, raster = T)
+```
+
+## ROI composition of clusters
+```{r}
+roi_cluster_counts <- table(codex.obj$roi, codex.obj$seurat_clusters)
+roi_cluster_counts <- data.frame(roi_cluster_counts)
+
+ggplot(roi_cluster_counts, aes(x = Var2, y = Freq, fill = Var1)) +
+  geom_bar(stat = "identity", position = "fill") +
+  xlab("Cluster")
+```
+
+```{r}
+colnames(roi_cluster_counts) <- c("roi", "cluster", "n")
+
+roi_cluster_counts$pct_of_cluster <- NA
+
+for (i in seq_along(roi_cluster_counts$cluster)) {
+  cluster_total <- sum(roi_cluster_counts$n[roi_cluster_counts$cluster == roi_cluster_counts$cluster[i]])
+  # print(cluster_total)
+  roi_cluster_counts$pct_of_cluster[i] <- (roi_cluster_counts$n[i]/cluster_total)*100
+}
+
+max_cluster_pct <- roi_cluster_counts %>% group_by(cluster) %>% slice_max(pct_of_cluster)
+# write.csv(max_cluster_pct, row.names = FALSE, "data/05-global_18marker_max_cluster_pct.csv")
+
+for (i in seq_along(roi_cluster_counts$cluster)) {
+  roi_total <- sum(roi_cluster_counts$n[roi_cluster_counts$roi == roi_cluster_counts$roi[i]])
+  # print(roi_total)
+  roi_cluster_counts$pct_of_roi[i] <- (roi_cluster_counts$n[i]/roi_total)*100
+}
+
+max_roi_pct <- roi_cluster_counts %>% group_by(roi) %>% slice_max(pct_of_roi)
+# write.csv(max_roi_pct, row.names = FALSE, "data/05-global_18marker_max_roi_pct.csv")
+```
+
+## Heatmap scaled by row
+```{r fig.height=8, fig.width=16}
+ht <- plot_avg_heatmap(codex.obj, scale_by = "row")
+ht <- draw(ht)
+
+row_ord <- row_order(ht)
+col_ord <- column_order(ht)
+```
+
+
+## Heatmap scaled by column
+```{r fig.height=8, fig.width=16}
+ht <- plot_avg_heatmap(codex.obj, order_manual = TRUE, scale_by = "column", row_ord = row_ord, col_ord = col_ord)
+ht <- draw(ht)
+```
+
+## Heatmaps with all markers
+
+### Scaled by row
+```{r fig.height=12, fig.width = 8}
+if (all(codex.obj$cellid == codex.obj_allmarkers$cellid)) {
+  codex.obj_allmarkers$seurat_clusters <- codex.obj$seurat_clusters
+  Idents(codex.obj_allmarkers) <- codex.obj_allmarkers$seurat_clusters
+}
+
+ht_all_row <- plot_avg_heatmap(codex.obj_allmarkers, order_manual = T, col_ord = col_ord, scale_by = "row")
+ht_all_row <- draw(ht_all_row)
+row_ord_all <- row_order(ht_all_row)
+```
+
+### Scaled by column
+```{r fig.height=12, fig.width = 8}
+ht_all_col <- plot_avg_heatmap(codex.obj_allmarkers, order_manual = T, col_ord = col_ord, row_ord = row_ord_all, scale_by = "column")
+ht_all_col <- draw(ht_all_col)
+```
+
+
+
+
+
+
+
+
+
+
+
+

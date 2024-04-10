@@ -1,0 +1,9 @@
+[login]
+user = "m304399"
+
+[server]
+url = "omerosrv01.mayo.edu"
+port = 4064
+group = "VillasboasLab"
+secure = true
+
