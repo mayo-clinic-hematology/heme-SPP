@@ -22,12 +22,15 @@ import ij.process.ImageProcessor
 
 // for loading csv file 
 
+clearAllObjects()
+
+
 regionSet="reg"
 
 // workflowDir=args[0]
 //dir_workflow = "Y:/003 CODEX/MCMICRO/SMM_project/20230522_BR1010694BR1034362_Gonsalves_3_membrane"
 //"C:/Users/m304399/Desktop/qupath_project"
-dir_workflow = "M:/Projects/SMM/MCMICRO/20230522_BR1010694BR1034362_Gonsalves_3_membrane"
+dir_workflow = "M:/Projects/Villasboas-CODEX/SMM/MCMICRO/20230522_BR1010694BR1034362_Gonsalves_3_membrane"
 
 
 def dir_ome = dir_workflow + "/registration"
@@ -99,6 +102,11 @@ selectedDir.eachFileRecurse (FileType.FILES) { file ->
 
 print(files)
 
+
+// Clear potential residual detections in previous projects 
+//print("Clearing detections if any")
+//project.clearDetections()
+//
 println('---')
 // Add files to the project
 for (file in files) {
@@ -135,8 +143,8 @@ for (file in files) {
 	
 	// Add an entry name (the filename)
 	entry.setImageName(file.getName())
-
 }
+
 
 // Changes should now be reflected in the project directory
 project.syncChanges()
@@ -196,13 +204,25 @@ if (directoryOfMasks.exists()){
 		entry.saveImageData(imageData)
 		
 		println(" >>> Calculating measurements...")
-        println(imageData.getHierarchy())
-        println("  DetectionObjects:"+imageData.getHierarchy().getDetectionObjects().size())        
-        def measurements = ObjectMeasurements.Measurements.values() as List
-        println(measurements)
-        for (detection in imageData.getHierarchy().getDetectionObjects()) {
-             ObjectMeasurements.addIntensityMeasurements( server, detection, downsample, measurements, [] )
-             ObjectMeasurements.addShapeMeasurements( detection, server.getPixelCalibration(), ObjectMeasurements.ShapeFeatures.values() )
+                println(imageData.getHierarchy())
+                println("  DetectionObjects:"+imageData.getHierarchy().getDetectionObjects().size())        
+                def measurements = ObjectMeasurements.Measurements.values() as List
+                println(measurements)
+                for (detection in imageData.getHierarchy().getDetectionObjects()) {
+                        //ObjectMeasurements.addIntensityMeasurements( server, detection, downsample, measurements, [] )
+                        //ObjectMeasurements.addShapeMeasurements( detection, server.getPixelCalibration(), ObjectMeasurements.ShapeFeatures.values() )
+                     
+                        // ECG capture x and y coordinates in pixels 
+                        double x = detection.getROI().getCentroidX()
+        		double y = detection.getROI().getCentroidY()
+        
+                        detection.getMeasurementList().putMeasurement("centroid_px_x",x)
+                        detection.getMeasurementList().putMeasurement("centroid_px_y",y)
+                        
+                        // ECG get mask value at pixel
+                        id_label = ip.getValue(x.round(0).intValue(),y.round(0).intValue())
+                        detection.getMeasurementList().putMeasurement("mask_label",id_label)  
+                
          }
          fireHierarchyUpdate()
          entry.saveImageData(imageData)
