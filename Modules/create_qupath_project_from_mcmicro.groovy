@@ -21,10 +21,6 @@ import ij.process.ImageProcessor
  import qupath.lib.objects.PathDetectionObject
 
 // for loading csv file 
-
-clearAllObjects()
-
-
 regionSet="reg"
 
 // workflowDir=args[0]
@@ -59,7 +55,6 @@ list_markers_csv.each() { item ->
      if(!name_channel.contains("marker_name")){
          list_markers << name_channel
          }
-     
     }
     
 // set the channel names
@@ -103,10 +98,6 @@ selectedDir.eachFileRecurse (FileType.FILES) { file ->
 print(files)
 
 
-// Clear potential residual detections in previous projects 
-//print("Clearing detections if any")
-//project.clearDetections()
-//
 println('---')
 // Add files to the project
 for (file in files) {
@@ -131,18 +122,23 @@ for (file in files) {
 	// Set a particular image type
 	def imageData = entry.readImageData()
 	imageData.setImageType(ImageData.ImageType.FLUORESCENCE)
-		
+	
 	// set channel names from csv file
 	setChannelNames(imageData, chan_names)
 	
-	entry.saveImageData(imageData)
+	print("Clearing objects from image")
+	imageData.getHierarchy().clearAll()
 	
+	entry.saveImageData(imageData)
+
 	// Write a thumbnail if we can
 	var img = ProjectCommands.getThumbnailRGB(imageData.getServer());
 	entry.setThumbnail(img)
-	
+
 	// Add an entry name (the filename)
 	entry.setImageName(file.getName())
+
+	
 }
 
 
