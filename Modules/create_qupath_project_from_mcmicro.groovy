@@ -24,9 +24,8 @@ import ij.process.ImageProcessor
 regionSet="reg"
 
 // workflowDir=args[0]
-//dir_workflow = "Y:/003 CODEX/MCMICRO/SMM_project/20230522_BR1010694BR1034362_Gonsalves_3_membrane"
-//"C:/Users/m304399/Desktop/qupath_project"
-dir_workflow = "M:/Projects/Villasboas-CODEX/SMM/MCMICRO/20230522_BR1010694BR1034362_Gonsalves_3_membrane"
+dir_workflow = "Y:/003 CODEX/MCMICRO/SMM_project/20230522_BR1010694BR1034362_Gonsalves_3_membrane"
+//dir_workflow = "M:/Projects/Villasboas-CODEX/SMM/MCMICRO/20230522_BR1010694BR1034362_Gonsalves_3_membrane"
 
 
 def dir_ome = dir_workflow + "/registration"
@@ -205,8 +204,8 @@ if (directoryOfMasks.exists()){
                 def measurements = ObjectMeasurements.Measurements.values() as List
                 println(measurements)
                 for (detection in imageData.getHierarchy().getDetectionObjects()) {
-                        //ObjectMeasurements.addIntensityMeasurements( server, detection, downsample, measurements, [] )
-                        //ObjectMeasurements.addShapeMeasurements( detection, server.getPixelCalibration(), ObjectMeasurements.ShapeFeatures.values() )
+                        ObjectMeasurements.addIntensityMeasurements( server, detection, downsample, measurements, [] )
+                        ObjectMeasurements.addShapeMeasurements( detection, server.getPixelCalibration(), ObjectMeasurements.ShapeFeatures.values() )
                      
                         // ECG capture x and y coordinates in pixels 
                         double x = detection.getROI().getCentroidX()
@@ -224,7 +223,6 @@ if (directoryOfMasks.exists()){
          entry.saveImageData(imageData)
          imageData.getServer().close() // best to do this...
 	 }
-
 }
 
 project.syncChanges()
