@@ -12,8 +12,10 @@ import numpy as np
 import pandas as pd
 #%% This scrip generates the marker.csv file given a channelsname.csv file
 
-path_project = Path(r"Z:\CODEX Processed files\20231208_LYM534A_Villasboas\channelNames.txt")
-path_output = Path(r"M:\Projects\Villasboas-CODEX\FL\20231208_LYM534A_Villasboas")
+
+name_project = "20240126_BR1631006_Gonsalves"
+path_project = Path(rf"Z:\CODEX Processed files\{name_project}\channelNames.txt")
+path_output = Path(rf"M:\Projects\Villasboas-CODEX\SMM\{name_project}")
 
 # path_dataset = [p / "channelNames.txt" for p in path_project.glob("*") if p.is_dir()]
 
@@ -31,7 +33,7 @@ dict_filters = {1 : "DAPI",
 list_channel_number_in_cycle = [idx % 4 + 1 for idx in np.arange(len(df_channel_names))]
 list_channel_number = np.arange(len(df_channel_names)) + 1
 
-list_cycle_number = [idx //4 + 1 for idx in np.arange(len(df_channel_names))]
+list_cycle_number = [idx // 4 + 1 for idx in np.arange(len(df_channel_names))]
 list_markers = df_channel_names['marker_name'].values
 
 pd_series_filters = pd.Series(list_channel_number_in_cycle).map(dict_filters)
@@ -48,19 +50,3 @@ print(f"Output: {path_output_csv}")
 df.to_csv(path_output_csv, index=False)
 
 #%%
-
-# df_first = None
-# df_sum = pd.DataFrame()
-
-# for pos, p in enumerate(path_dataset):
-#     pass
-#     if df_first is None:
-#         df_first = pd.read_csv(p)
-#         df_sum[pos] = df_first
-#     else:
-#         df_second  = pd.read_csv(p)
-#         equals = df_first.equals(df_second)
-#         print(equals)
-#         df_sum[pos] = df_second
-
-
