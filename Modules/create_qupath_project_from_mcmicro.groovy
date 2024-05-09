@@ -25,7 +25,7 @@ regionSet="reg"
 
 // workflowDir=args[0]
 //dir_workflow = "Y:/003 CODEX/MCMICRO/SMM_project/20230522_BR1010694BR1034362_Gonsalves_3_membrane"
-dir_workflow = "Y:/003 CODEX/MCMICRO/SMM_project/20240112_BR062124_Gonsalves_3_membrane"
+dir_workflow = "Y:/003 CODEX/MCMICRO/SMM_project/20240126_BR1631006_Gonsalves_3_membrane"
 
 //dir_workflow = "M:/Projects/Villasboas-CODEX/SMM/MCMICRO/20230522_BR1010694BR1034362_Gonsalves_3_membrane"
 
@@ -127,8 +127,8 @@ for (file in files) {
 	// set channel names from csv file
 	setChannelNames(imageData, chan_names)
 	
-//	print("Clearing objects from image")
-//	imageData.getHierarchy().clearAll()
+	print("Clearing objects from image")
+	imageData.getHierarchy().clearAll()
 	
 	entry.saveImageData(imageData)
 
