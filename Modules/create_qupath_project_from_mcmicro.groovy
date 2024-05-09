@@ -24,7 +24,9 @@ import ij.process.ImageProcessor
 regionSet="reg"
 
 // workflowDir=args[0]
-dir_workflow = "Y:/003 CODEX/MCMICRO/SMM_project/20230522_BR1010694BR1034362_Gonsalves_3_membrane"
+//dir_workflow = "Y:/003 CODEX/MCMICRO/SMM_project/20230522_BR1010694BR1034362_Gonsalves_3_membrane"
+dir_workflow = "Y:/003 CODEX/MCMICRO/SMM_project/20240112_BR062124_Gonsalves_3_membrane"
+
 //dir_workflow = "M:/Projects/Villasboas-CODEX/SMM/MCMICRO/20230522_BR1010694BR1034362_Gonsalves_3_membrane"
 
 
@@ -86,7 +88,7 @@ def project = Projects.createProject(directory , BufferedImage.class)
 def files = []
 selectedDir = new File(dir_ome)
 selectedDir.eachFileRecurse (FileType.FILES) { file ->
-	if (file.getName().toLowerCase().endsWith(".ome.tiff"))
+	if ((file.getName().toLowerCase().endsWith(".ome.tif")) || (file.getName().toLowerCase().endsWith(".ome.tiff")))
 	{
 		if(file.getName().contains(regionSet)){
 			files << file
@@ -125,8 +127,8 @@ for (file in files) {
 	// set channel names from csv file
 	setChannelNames(imageData, chan_names)
 	
-	print("Clearing objects from image")
-	imageData.getHierarchy().clearAll()
+//	print("Clearing objects from image")
+//	imageData.getHierarchy().clearAll()
 	
 	entry.saveImageData(imageData)
 
