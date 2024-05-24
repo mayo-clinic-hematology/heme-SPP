@@ -6,23 +6,13 @@ Created on Fri Nov 17 13:59:52 2023
 """
 
 # https://github.com/labsyspharm/ashlar
-
+import argparse,re,shutil
 from pathlib import Path
 from natsort import natsorted
-
-import numpy as np
-import re
-
-import matplotlib.pylab as plt
-import matplotlib as mpl
-mpl.rcParams['figure.dpi'] = 300
-import tifffile
 from tqdm import tqdm
-import tempfile
-
-import shutil
-#%% This scripts divides the images into folders based on their cycle
-# this is done because that is the input into ashlar
+import pandas as pd
+import numpy as np
+# This scripts divides the images into folders based on their cycle to format as input into ashlar
 
 def ashlar_input_formatter(path_tiles_folder : str=None):
     
@@ -30,13 +20,9 @@ def ashlar_input_formatter(path_tiles_folder : str=None):
     
     assert path_tiles_folder is not None and path_tiles_folder.exists(), "Error: no or invalid input path"
     
-    # output tiffs into here
-    path_ashlar_inputs = path_tiles_folder.parent / "ashlar" / "ashlar_inputs"
+    # output tiff directory
+    path_ashlar_inputs = path_tiles_folder.parent / "raw"
     path_ashlar_inputs.mkdir(parents=True, exist_ok=True)
-    
-    # create ashlar outputs folder for docker
-    path_ashlar_outputs = path_tiles_folder.parent / "ashlar" / "ashlar_outputs"
-    path_ashlar_outputs.mkdir(parents=True, exist_ok=True)
     
     list_path_tiles = list(path_tiles_folder.rglob("*.tif"))
     list_path_tiles = natsorted(list_path_tiles)
@@ -51,7 +37,7 @@ def ashlar_input_formatter(path_tiles_folder : str=None):
         if reg not in list_regions:
             list_regions.append(reg)
     
-    # create stack for each regions
+    # create stack for each region
     for region in tqdm(list_regions[:]):
 
         pass
@@ -90,24 +76,61 @@ def ashlar_input_formatter(path_tiles_folder : str=None):
                 path_new_file = path_cycle_output / filename
                 
                 if not path_new_file.exists():
-                    # shutil.copy2(path_tile, path_new_file)
-                    print(f"Copying: {path_tile} --> {path_new_file}")
+                    shutil.copy2(path_tile, path_new_file)
+                    # print(f"Copying: {path_tile} --> {path_new_file}")
 
-            #%%
+def marker_csv_generator(path_project : str=None):
+
+    ch_names = Path(path_project / "channelNames.txt")
+
+    df_channel_names = pd.read_csv(ch_names , names = ["marker_name"])
+
+    dict_filters = {1 : "DAPI",
+                    2 : "AF750",
+                    3 : "Atto550",
+                    4 : "Cy5"
+                    }
+
+    # channel_number = index
+    list_channel_number_in_cycle = [idx % 4 + 1 for idx in np.arange(len(df_channel_names))]
+    list_channel_number = np.arange(len(df_channel_names)) + 1
+
+    list_cycle_number = [idx // 4 + 1 for idx in np.arange(len(df_channel_names))]
+    list_markers = df_channel_names['marker_name'].values
+
+    pd_series_filters = pd.Series(list_channel_number_in_cycle).map(dict_filters)
+
+    df = pd.DataFrame({'channel_number' : list_channel_number, 
+                    'cycle_number' : list_cycle_number, 
+                    'marker_name' : list_markers, 
+                    'filter' : pd_series_filters})
+
+    # path_output_csv = path_project.parent / "markers.csv"
+    path_output_csv = path_project / "markers.csv"
+
+    print(f"Output: {path_output_csv}")
+    df.to_csv(path_output_csv, index=False)
+
+
 if __name__ == "__main__":
-    
-    # for each tile folder:
-        
-    # path_tiles_folder = Path(r"M:\Projects\DLBCL\20211222_CR082480A1_Villasboas_processed_computer\processed_2021-12-26\tiles")
-    # path_tiles_folder = Path(r"M:\Projects\PTLD\20220203_LYMLEO452 PTLD A_Villasboas_processed_2022-02-10_tiles\tiles")
-    
 
-    path_projects = Path(r"M:\Projects\SMM")
+        # Enable for testing script locally
+    if False:
+        # set arguments for testing
+        import sys
+        sys.argv.extend(['-i', '/home/mdhowe/projects/MM_risk_radiomics/data'])
+
+    parser = argparse.ArgumentParser(description='Convert CODEX processor directory to OME.TIFs')
+    parser.add_argument('-i', '--indir', help='MCMICRO formatted directory containing a tiles directory and channelNames.txt list', nargs='?', type=str, dest="cdxDir", metavar="DIR",required=True)
+
+    args = parser.parse_args()
+    path = Path(args.cdxDir)
     
-    list_path_tiles = [p for p in path_projects.rglob("*tiles*")]
+    list_path_tiles = [p for p in path.rglob("*tiles*")]
     
     for path_tiles_folder in list_path_tiles[:]:
         pass
         print(f"Processing: {path_tiles_folder.parent.name}")
         ashlar_input_formatter(path_tiles_folder)
-    
+
+    marker_csv_generator(path)

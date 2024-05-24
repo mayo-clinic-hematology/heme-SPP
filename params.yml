@@ -1,0 +1,13 @@
+workflow:
+  start-at: registration
+  segmentation: mesmer
+options:
+  ashlar: --maximum-shift 0
+    "filepattern|.|pattern={samplename}_X{col:02}_Y{row:02}_t001_z001_c{channel}.tif|overlap=0.0|pixel_size=0.377454"
+  mesmer: --membrane-channel 63
+  mcquant: --masks cell.tif --intensity_props intensity_median
+modules:
+    registration:
+      name: ashlar
+      container: labsyspharm/ashlar
+      version: 1.18.0b3

@@ -1,5 +1,4 @@
 #! /bin/bash
-# by Raymond Moore
 SECONDS=0
 
 

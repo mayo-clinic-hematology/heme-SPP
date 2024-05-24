@@ -23,8 +23,8 @@ import ij.process.ImageProcessor
 // for loading csv file 
 regionSet="reg"
 
-// workflowDir=args[0]
-dir_workflow = "Y:/003 CODEX/MCMICRO/SMM_project/20230522_BR1010694BR1034362_Gonsalves_3_membrane"
+dir_workflow=args[0]
+// dir_workflow = "Y:/003 CODEX/MCMICRO/SMM_project/20230522_BR1010694BR1034362_Gonsalves_3_membrane"
 //dir_workflow = "M:/Projects/Villasboas-CODEX/SMM/MCMICRO/20230522_BR1010694BR1034362_Gonsalves_3_membrane"
 
 
