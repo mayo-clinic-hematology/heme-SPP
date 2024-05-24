@@ -25,6 +25,10 @@ regionSet="reg"
 
 dir_workflow=args[0]
 // dir_workflow = "Y:/003 CODEX/MCMICRO/SMM_project/20230522_BR1010694BR1034362_Gonsalves_3_membrane"
+// workflowDir=args[0]
+//dir_workflow = "Y:/003 CODEX/MCMICRO/SMM_project/20230522_BR1010694BR1034362_Gonsalves_3_membrane"
+dir_workflow = "Y:/003 CODEX/MCMICRO/SMM_project/20240126_BR1631006_Gonsalves_3_membrane"
+
 //dir_workflow = "M:/Projects/Villasboas-CODEX/SMM/MCMICRO/20230522_BR1010694BR1034362_Gonsalves_3_membrane"
 
 
@@ -86,7 +90,7 @@ def project = Projects.createProject(directory , BufferedImage.class)
 def files = []
 selectedDir = new File(dir_ome)
 selectedDir.eachFileRecurse (FileType.FILES) { file ->
-	if (file.getName().toLowerCase().endsWith(".ome.tiff"))
+	if ((file.getName().toLowerCase().endsWith(".ome.tif")) || (file.getName().toLowerCase().endsWith(".ome.tiff")))
 	{
 		if(file.getName().contains(regionSet)){
 			files << file
